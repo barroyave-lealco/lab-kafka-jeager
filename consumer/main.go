@@ -1,13 +1,25 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"main/jeager"
 	kafkaPkg "main/kafka"
+	"os"
+
+	"main/api"
+	"main/routes"
 
 	"github.com/opentracing/opentracing-go"
 )
+
+func server() {
+
+	api.NewAPIRestServer(
+		os.Getenv("API_REST_CRM_BONUS_PORT"),
+		os.Getenv("API_REST_CRM_BONUS_GLOBAL_PREFIX"),
+		routes.CrmBonusRoutes,
+	)
+}
 
 func main() {
 	brokers := "localhost:9093,localhost:9092,localhost:9091"
@@ -17,26 +29,13 @@ func main() {
 	}
 	defer closer.Close()
 
-	handleProducerMessage(brokers)
 	handleConsumerMessage(brokers)
-	for {
 
-	}
+	server := routes.NewAPIRestServer("3001", "prueba", routes.CrmBonusRoutes)
+
+	server.RunServer()
 }
 
-func handleProducerMessage(brokers string) {
-	fmt.Println("Iniciando produtor")
-	parentSpan := opentracing.GlobalTracer().StartSpan("processing-kafka-message")
-	defer parentSpan.Finish()
-
-	parentSpan.SetTag("send", "true")
-	ctx := opentracing.ContextWithSpan(context.Background(), parentSpan)
-
-	producer := kafkaPkg.NewProducer(brokers)
-
-	sendMessageToKafka(ctx, producer, "topico1", []byte("Mensaje de prueba"))
-
-}
 func handleConsumerMessage(brokers string) {
 	fmt.Println("Iniciando consumidor")
 	consumer := kafkaPkg.NewConsumer(brokers, "topico1", "topico1", 1)
@@ -61,30 +60,5 @@ func Read(message []byte) error {
 	)
 
 	defer childSpan.Finish()
-	return nil
-}
-
-func sendMessageToKafka(ctx context.Context, producer kafkaPkg.Producer, topic string, messageBody []byte) error {
-	// Crear un nuevo span asociado con el contexto
-
-	headers := map[string]string{
-		"key1": "value1",
-	}
-	span, _ := opentracing.StartSpanFromContext(ctx, "sending-to-kafka")
-	defer span.Finish()
-
-	// Inyectar el contexto trazado en los headers del mensaje
-	err := opentracing.GlobalTracer().Inject(
-		span.Context(),
-		opentracing.TextMap,
-		opentracing.TextMapCarrier(headers),
-	)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Enviando mansaje")
-
-	// producer.SendMessage(topic, "id", messageBody)
 	return nil
 }

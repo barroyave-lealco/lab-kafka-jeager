@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"main/kafka/internal"
 	"time"
-
-	"github.com/opentracing/opentracing-go"
 )
 
 type Consumer interface {
@@ -40,7 +38,7 @@ func newKafkaConsumer(brokers string, topic, groupId string, poolSize int, wrapp
 // ConsumeRecords consumes records from a kafka topic, it receives a function to process the record.
 // If the processing function is successful the offset of the message is commited
 func (k *consumer) ConsumeRecords(processFunction func([]byte) error) {
-	Read([]byte("mensaje de prueba"))
+	// Read([]byte("mensaje de prueba"))
 	for i := 0; i < k.poolSize; i++ {
 		go k.workProcessing(i, processFunction)
 	}
@@ -50,25 +48,6 @@ func (k *consumer) ConsumeRecords(processFunction func([]byte) error) {
 
 type Ctx struct {
 	Ctx context.Context
-}
-
-func Read(message []byte) error {
-	fmt.Println("Leyendo mensaje")
-
-	headers := map[string]string{
-		"key1": "value1",
-	}
-	parentSpanContext, _ := opentracing.GlobalTracer().Extract(
-		opentracing.TextMap,
-		opentracing.TextMapCarrier(headers),
-	)
-	childSpan := opentracing.StartSpan(
-		"processing-kafka-message",
-		opentracing.ChildOf(parentSpanContext),
-	)
-
-	defer childSpan.Finish()
-	return nil
 }
 
 func (k *consumer) workProcessing(consumerId int, processFunction func([]byte) error) {
